@@ -137,6 +137,11 @@ class SessionInjectorGUI:
             bar, text="Testar no navegador ao importar", variable=self.browser_var,
         ).pack(side="left", padx=12)
 
+        self.persistent_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(
+            bar, text="Perfil persistente (recomendado)", variable=self.persistent_var,
+        ).pack(side="left")
+
         self.file_label = tk.Label(bar, text="Nenhum arquivo carregado",
                                    bg=BG, fg=MUTED, font=("Segoe UI", 9))
         self.file_label.pack(side="right")
@@ -318,7 +323,8 @@ class SessionInjectorGUI:
     # Browser launching
     # ------------------------------------------------------------------ #
     def _launch_browser(self, cookies: list[Cookie], url: str, label: str,
-                        profile: ServiceProfile | None = None) -> None:
+                        profile: ServiceProfile | None = None,
+                        profile_name: str = "default") -> None:
         if not cookies:
             self.logger.warning("Sem cookies para %s.", label)
             return
@@ -328,12 +334,14 @@ class SessionInjectorGUI:
                 "pip install playwright  (e depois)  playwright install chromium")
             return
 
+        persistent = self.persistent_var.get()
         self.logger.info("Abrindo navegador para %s (%d cookies)…",
                          label, len(cookies))
 
         def worker():
             try:
-                open_session(cookies, url, logger=self.logger, profile=profile)
+                open_session(cookies, url, logger=self.logger, profile=profile,
+                             persistent=persistent, profile_name=profile_name)
             except BrowserUnavailable as exc:
                 self.logger.error("%s", exc)
             except Exception as exc:  # keep the GUI alive
@@ -343,13 +351,15 @@ class SessionInjectorGUI:
 
     def open_service(self, profile: ServiceProfile) -> None:
         scoped = [c for c in self.cookies if profile.owns(c.registrable_domain)]
-        self._launch_browser(scoped, profile.test_url, profile.label, profile)
+        self._launch_browser(scoped, profile.test_url, profile.label, profile,
+                             profile_name=profile.key)
 
     def open_site(self, site: str) -> None:
         scoped = cookies_for_site(self.cookies, site)
         profile = profile_for_domain(site)
         url = profile.test_url if profile else f"https://{site}"
-        self._launch_browser(scoped, url, site, profile)
+        name = profile.key if profile else site.replace(".", "_")
+        self._launch_browser(scoped, url, site, profile, profile_name=name)
 
     # ------------------------------------------------------------------ #
     # Import + analysis

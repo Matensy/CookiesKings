@@ -109,7 +109,17 @@ an absolute import, so no "run as module" setup is required). Then:
    round-trip during import.
 
 The **Abrir** buttons open a visible browser and keep it open until you close
-it — so this needs Chromium installed:
+it. Two things maximise the odds a strict service accepts a restored session
+(both on by default):
+
+* **Correct cookie injection** — `__Host-` cookies are injected host-only (via
+  `url`, never a domain) and `__Secure-` cookies are forced Secure, so Chromium
+  doesn't silently drop them. The log reports how many cookies actually stuck.
+* **Perfil persistente** — a real on-disk browser profile under
+  `profiles/<service>/` (its own user-data-dir and storage), which behaves far
+  more like a genuine browser than a throwaway context.
+
+These need Chromium installed:
 
 ```bash
 pip install playwright
