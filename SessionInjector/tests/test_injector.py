@@ -4,15 +4,16 @@ from SessionInjector.cookies.models import Cookie
 FUTURE = 4_102_444_800.0
 
 
-def test_host_prefix_uses_url_and_no_domain():
+def test_host_prefix_uses_url_and_no_domain_or_path():
     c = Cookie("__Host-session", "v", "example.com", "/", FUTURE,
                secure=False, http_only=True)
     (payload,) = to_playwright_cookies([c])
-    # __Host- must be host-only: url instead of domain, forced Secure.
+    # __Host- must be host-only via `url`, forced Secure, and must NOT carry a
+    # `domain` or a `path` — Playwright rejects a cookie with url + path/domain.
     assert payload.get("url") == "https://example.com/"
     assert "domain" not in payload
+    assert "path" not in payload
     assert payload["secure"] is True
-    assert payload["path"] == "/"
 
 
 def test_secure_prefix_forces_secure():

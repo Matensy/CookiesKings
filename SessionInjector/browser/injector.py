@@ -24,13 +24,13 @@ def _cookie_payload(cookie: Cookie) -> dict:
     host = cookie.registrable_domain  # domain without a leading dot
 
     if name.startswith("__Host-"):
-        # Host-only + Secure + Path=/. Use `url` so Chromium sets it host-only;
-        # never send a `domain` for these or the cookie is rejected.
+        # Host-only + Secure + Path=/. Use `url` alone so Chromium sets it
+        # host-only; Playwright rejects a cookie that has BOTH `url` and `path`
+        # (or a `domain`), so we send neither here — the url implies path "/".
         data = {
             "name": name,
             "value": cookie.value,
             "url": f"https://{host}/",
-            "path": "/",
             "secure": True,
             "httpOnly": cookie.http_only,
         }
