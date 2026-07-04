@@ -65,10 +65,13 @@ SessionInjector/
 │   ├── session_tester.py  # multi-service orchestration
 │   └── logging_config.py  # console + file logging
 ├── ui/
-│   └── dashboard.py       # framework-agnostic renderers
+│   ├── dashboard.py       # framework-agnostic renderers
+│   └── gui.py             # Tkinter desktop window
 ├── tests/                 # pytest suite (no browser needed)
 ├── storage/  logs/  profiles/  assets/
 └── requirements.txt
+
+run_gui.py                 # root launcher for the GUI (click ▶ in PyCharm)
 ```
 
 ## Install
@@ -83,6 +86,28 @@ Parsing, analysis and health scoring work with **zero third-party
 dependencies** — Playwright is only imported when a browser test actually runs.
 
 ## Usage
+
+### Desktop GUI (easiest)
+
+A Tkinter window — no terminal needed. From the project root:
+
+```bash
+python run_gui.py
+```
+
+In PyCharm you can just open `run_gui.py` and click the green ▶ button (it uses
+an absolute import, so no "run as module" setup is required). Then:
+
+1. Click **📂 Importar cookies…** and pick a `cookies.txt` / `.json` export.
+2. The analysis cards (total / valid / expired / …) fill in instantly.
+3. Each recognised service shows a **Health Score** bar and status.
+4. Tick **Testar no navegador** to run the real Chromium round-trip
+   (requires `playwright install chromium`).
+
+Tkinter ships with the standard Python installer, so the GUI needs no extra
+dependency for the local (no-browser) checks.
+
+### Command line
 
 ```bash
 # Analyse a cookie export
@@ -161,7 +186,8 @@ score, and runs **without** a browser.
 
 ## Roadmap
 
-- [ ] Drag-and-drop desktop GUI (Tkinter/Qt) over the same `core` API
+- [x] Desktop GUI (Tkinter) over the same `core` API — `run_gui.py`
+- [ ] Drag-and-drop file import in the GUI
 - [ ] Persist imported sets to `storage/` with an audit trail
 - [ ] More service profiles
 - [ ] Export health reports to JSON/HTML
