@@ -260,12 +260,14 @@ class SessionInjectorGUI:
 
         bottom = tk.Frame(card, bg=CARD)
         bottom.pack(fill="x", padx=12, pady=(0, 10))
-        info = f"Status: {v.status.value}  •  {h.grade}"
+        info = h.grade
+        if not h.verified:
+            info += "  •  clique “Abrir” para testar de verdade"
         if v.missing_required:
-            info += f"  •  faltando: {', '.join(v.missing_required)}"
+            info += f"\nfaltando: {', '.join(v.missing_required)}"
         tk.Label(bottom, text=info, bg=CARD, fg=MUTED, font=("Segoe UI", 9),
-                 justify="left", wraplength=460).pack(side="left")
-        ttk.Button(bottom, text="🌐 Abrir logado", style="Open.TButton",
+                 justify="left", wraplength=440).pack(side="left")
+        ttk.Button(bottom, text="🌐 Abrir e verificar", style="Open.TButton",
                    command=lambda p=profile: self.open_service(p)).pack(side="right")
 
     # ------------------------------------------------------------------ #
@@ -315,14 +317,15 @@ class SessionInjectorGUI:
     # ------------------------------------------------------------------ #
     # Browser launching
     # ------------------------------------------------------------------ #
-    def _launch_browser(self, cookies: list[Cookie], url: str, label: str) -> None:
+    def _launch_browser(self, cookies: list[Cookie], url: str, label: str,
+                        profile: ServiceProfile | None = None) -> None:
         if not cookies:
             self.logger.warning("Sem cookies para %s.", label)
             return
         if not playwright_available():
             self.logger.error(
                 "Playwright não instalado. No terminal do PyCharm rode: "
-                "pip install playwright  &&  playwright install chromium")
+                "pip install playwright  (e depois)  playwright install chromium")
             return
 
         self.logger.info("Abrindo navegador para %s (%d cookies)…",
@@ -330,7 +333,7 @@ class SessionInjectorGUI:
 
         def worker():
             try:
-                open_session(cookies, url, logger=self.logger)
+                open_session(cookies, url, logger=self.logger, profile=profile)
             except BrowserUnavailable as exc:
                 self.logger.error("%s", exc)
             except Exception as exc:  # keep the GUI alive
@@ -340,13 +343,13 @@ class SessionInjectorGUI:
 
     def open_service(self, profile: ServiceProfile) -> None:
         scoped = [c for c in self.cookies if profile.owns(c.registrable_domain)]
-        self._launch_browser(scoped, profile.test_url, profile.label)
+        self._launch_browser(scoped, profile.test_url, profile.label, profile)
 
     def open_site(self, site: str) -> None:
         scoped = cookies_for_site(self.cookies, site)
         profile = profile_for_domain(site)
         url = profile.test_url if profile else f"https://{site}"
-        self._launch_browser(scoped, url, site)
+        self._launch_browser(scoped, url, site, profile)
 
     # ------------------------------------------------------------------ #
     # Import + analysis

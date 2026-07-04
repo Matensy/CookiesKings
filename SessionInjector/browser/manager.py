@@ -105,8 +105,12 @@ class BrowserManager:
         self.stop()
 
 
-def open_session(cookies: list, url: str, logger=None) -> None:
+def open_session(cookies: list, url: str, logger=None, profile=None) -> None:
     """Open a **visible** browser, inject cookies, navigate, and hold it open.
+
+    When a ``profile`` is given, the real login state is checked after the page
+    settles and reported honestly (✓ logado / ✗ deslogado / não confirmado) —
+    so the user is never told a session works when it doesn't.
 
     Blocks until the user closes the browser window, so this must be run on its
     own thread (Playwright's sync API is single-threaded). Raises
@@ -120,8 +124,14 @@ def open_session(cookies: list, url: str, logger=None) -> None:
         page = context.new_page()
         try:
             page.goto(url, wait_until="domcontentloaded", timeout=30_000)
+            try:
+                page.wait_for_load_state("networkidle", timeout=6_000)
+            except Exception:
+                pass
+            final_url = page.url
             if logger:
-                logger.info("Aberto %s (URL final: %s)", url, page.url)
+                logger.info("Aberto %s (URL final: %s)", url, final_url)
+            _report_login(page, final_url, profile, logger)
         except Exception as exc:  # navigation hiccups shouldn't kill the window
             if logger:
                 logger.warning("Falha ao navegar para %s: %s", url, exc)
@@ -132,6 +142,32 @@ def open_session(cookies: list, url: str, logger=None) -> None:
         mgr.stop()
         if logger:
             logger.info("Navegador fechado (%s).", url)
+
+
+def _report_login(page, final_url: str, profile, logger) -> None:
+    """Log an honest verdict about whether the session actually restored."""
+    if logger is None or profile is None:
+        return
+    # Imported here to avoid a circular import at module load.
+    from .validator import evaluate_login
+    from ..cookies.models import SessionStatus
+
+    dom = None
+    if profile.logged_in_selector:
+        try:
+            dom = page.query_selector(profile.logged_in_selector) is not None
+        except Exception:
+            dom = None
+
+    status, _logged_in, note = evaluate_login(final_url, profile, dom)
+    if status is SessionStatus.FUNCTIONAL:
+        logger.info("✅ %s: sessão restaurada — VOCÊ ESTÁ LOGADO.", profile.label)
+    elif status is SessionStatus.INVALID:
+        logger.warning("❌ %s: sessão NÃO restaurada — pedindo login. %s",
+                       profile.label, note)
+    else:
+        logger.warning("⚠️ %s: não deu para confirmar o login. %s",
+                       profile.label, note)
 
 
 @contextmanager

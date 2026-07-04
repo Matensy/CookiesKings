@@ -48,7 +48,8 @@ def test_health_full_set_scores_high_locally():
 def test_health_empty_scores_zero():
     hs = compute_health([], GOOGLE, validation=None, now=NOW)
     assert hs.score == 0
-    assert hs.grade == "Broken"
+    assert hs.verified is False
+    assert "não verificado" in hs.grade
 
 
 def test_health_stars_scale():
