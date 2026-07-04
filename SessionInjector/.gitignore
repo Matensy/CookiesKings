@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+
+# Runtime output — never commit real session data / cookies / logs
+logs/*.log
+storage/*
+profiles/*
+*.cookies
+cookies*.json
+cookies*.txt
+
+# Keep the empty runtime dirs in git
+!storage/.gitkeep
+!profiles/.gitkeep
+!logs/.gitkeep
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
