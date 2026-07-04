@@ -1,0 +1,10 @@
+# Core runtime — parsing, analysis, health scoring and the CLI need no
+# third-party packages (pure standard library).
+
+# Browser-based validation (levels 2-4) requires Playwright + Chromium:
+#   pip install -r requirements.txt
+#   playwright install chromium
+playwright>=1.40
+
+# Development / testing
+pytest>=7.0

@@ -1,0 +1,8 @@
+[
+  {"name": "SID",     "value": "FAKE-sid-value",     "domain": ".google.com", "path": "/", "secure": true, "httpOnly": true, "sameSite": "no_restriction", "expirationDate": 4102444800},
+  {"name": "HSID",    "value": "FAKE-hsid-value",    "domain": ".google.com", "path": "/", "secure": true, "httpOnly": true, "sameSite": "no_restriction", "expirationDate": 4102444800},
+  {"name": "SSID",    "value": "FAKE-ssid-value",    "domain": ".google.com", "path": "/", "secure": true, "httpOnly": true, "sameSite": "no_restriction", "expirationDate": 4102444800},
+  {"name": "SAPISID", "value": "FAKE-sapisid-value", "domain": ".google.com", "path": "/", "secure": true, "httpOnly": false, "sameSite": "no_restriction", "expirationDate": 4102444800},
+  {"name": "APISID",  "value": "FAKE-apisid-value",  "domain": ".google.com", "path": "/", "secure": true, "httpOnly": false, "sameSite": "no_restriction", "expirationDate": 4102444800},
+  {"name": "LSID",    "value": "FAKE-lsid-value",    "domain": "accounts.google.com", "path": "/", "secure": true, "httpOnly": true, "sameSite": "no_restriction", "expirationDate": 4102444800}
+]
