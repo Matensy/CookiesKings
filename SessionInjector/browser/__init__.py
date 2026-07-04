@@ -4,6 +4,7 @@ from .manager import (
     BrowserManager,
     BrowserUnavailable,
     browser_session,
+    open_session,
     playwright_available,
 )
 from .validator import validate, validate_browser, validate_local
@@ -14,6 +15,7 @@ __all__ = [
     "BrowserManager",
     "BrowserUnavailable",
     "browser_session",
+    "open_session",
     "playwright_available",
     "validate",
     "validate_browser",
