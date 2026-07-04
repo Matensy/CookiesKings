@@ -36,6 +36,11 @@ class HealthScore:
     factors: dict[str, float] = field(default_factory=dict)  # factor -> 0..1
     contributions: dict[str, float] = field(default_factory=dict)  # factor -> points
     notes: list[str] = field(default_factory=list)
+    # True only when a real browser test contributed to the score. Without it,
+    # the score is a *local heuristic* and cannot promise the session works.
+    verified: bool = False
+    # The browser test's verdict, when one ran (True/False/None).
+    logged_in: bool | None = None
 
     @property
     def stars(self) -> str:
@@ -44,13 +49,17 @@ class HealthScore:
 
     @property
     def grade(self) -> str:
-        if self.score >= 85:
-            return "Functional"
+        # When a browser test actually ran, the verdict is authoritative.
+        if self.verified:
+            if self.logged_in:
+                return "Logado ✓ (verificado)"
+            return "Deslogado ✗ (verificado)"
+        # Local-only: never claim it works — this is a heuristic, not proof.
         if self.score >= 60:
-            return "Likely functional"
+            return "Local OK — não verificado"
         if self.score >= 35:
-            return "Weak"
-        return "Broken"
+            return "Local fraco — não verificado"
+        return "Local ruim — não verificado"
 
     def as_dict(self) -> dict:
         return {
@@ -153,6 +162,8 @@ def compute_health(
         score=int(round(total_points)),
         factors={k: round(v, 3) for k, v in factors.items()},
         contributions=contributions,
+        verified=browser_counted,
+        logged_in=validation.logged_in if validation is not None else None,
     )
 
     # Human-readable notes for the weakest factors.

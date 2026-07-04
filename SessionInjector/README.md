@@ -109,7 +109,17 @@ an absolute import, so no "run as module" setup is required). Then:
    round-trip during import.
 
 The **Abrir** buttons open a visible browser and keep it open until you close
-it — so this needs Chromium installed:
+it. Two things maximise the odds a strict service accepts a restored session
+(both on by default):
+
+* **Correct cookie injection** — `__Host-` cookies are injected host-only (via
+  `url`, never a domain) and `__Secure-` cookies are forced Secure, so Chromium
+  doesn't silently drop them. The log reports how many cookies actually stuck.
+* **Perfil persistente** — a real on-disk browser profile under
+  `profiles/<service>/` (its own user-data-dir and storage), which behaves far
+  more like a genuine browser than a throwaway context.
+
+These need Chromium installed:
 
 ```bash
 pip install playwright
@@ -152,6 +162,30 @@ python -m SessionInjector.app test assets/sample_cookies.example.json --no-brows
 
 Cheaper levels short-circuit: if all cookies are expired or half the required
 cookies are missing, the browser is never launched.
+
+### Honest verification (positive evidence)
+
+The local levels (1-3) are **heuristics** — they can say "the essential cookies
+are present", never "the session works". Only the browser test (level 4) can
+confirm a live session, and it requires **positive evidence**:
+
+* bounced to a sign-in URL → **logged out** (INVALID);
+* stayed on the protected page / found a logged-in DOM marker → **logged in**;
+* anything else → **unknown** (never an optimistic "functional").
+
+So a local-only result is labelled *"não verificado"*, and the **🌐 Abrir e
+verificar** button reports the real verdict (✅ logado / ❌ deslogado) in the
+log after opening.
+
+### Why Google / X / YouTube often won't restore
+
+These services bind a session to more than cookies — device/context signals,
+and server-revalidated cookies such as Google's `__Secure-1PSID` /
+`__Secure-3PSID`. Injecting cookies into a fresh browser context is a *new*
+context, so they frequently re-challenge and show the login page even with a
+complete, non-expired cookie set. Simpler sites (many forums, dashboards, etc.)
+trust the cookie and restore immediately. This is expected — the tool now
+reports it truthfully instead of claiming success.
 
 ## Session Health Score
 

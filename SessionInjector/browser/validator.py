@@ -11,6 +11,7 @@ offline levels run first and can short-circuit before ever launching a browser:
 from __future__ import annotations
 
 import time
+from urllib.parse import urlparse
 
 from ..config.profiles import ServiceProfile
 from ..cookies.models import (
@@ -24,6 +25,41 @@ from .manager import BrowserManager, BrowserUnavailable
 
 def _cookies_for_service(cookies: list[Cookie], profile: ServiceProfile) -> list[Cookie]:
     return [c for c in cookies if profile.owns(c.registrable_domain)]
+
+
+def evaluate_login(
+    final_url: str,
+    profile: ServiceProfile,
+    dom_logged_in: bool | None = None,
+) -> tuple[SessionStatus, bool | None, str]:
+    """Decide the login state from the final URL and an optional DOM marker.
+
+    Returns ``(status, logged_in, note)``. The rule is *positive evidence
+    required* — we never assume success:
+
+      * bounced to a sign-in URL      -> INVALID  (definitely logged out)
+      * DOM marker for a logged-in UI -> FUNCTIONAL
+      * stayed on the protected host  -> FUNCTIONAL (reached it without a bounce)
+      * anything else                 -> UNKNOWN   (could not confirm)
+    """
+    url = final_url or ""
+
+    if any(marker in url for marker in profile.signed_out_url_markers):
+        return SessionStatus.INVALID, False, f"Redirecionado para login: {url}"
+
+    if dom_logged_in is True:
+        return SessionStatus.FUNCTIONAL, True, "Elemento de usuário logado encontrado."
+    if dom_logged_in is False:
+        return SessionStatus.INVALID, False, "Elemento de usuário logado ausente."
+
+    host = urlparse(url).netloc.lower()
+    if profile.logged_in_hosts and any(
+        host == h or host.endswith("." + h) for h in profile.logged_in_hosts
+    ):
+        return (SessionStatus.FUNCTIONAL, True,
+                "Página protegida carregada sem redirecionar para login.")
+
+    return SessionStatus.UNKNOWN, None, f"Não foi possível confirmar (URL: {url})."
 
 
 def validate_local(
@@ -106,34 +142,20 @@ def validate_browser(
         final_url = page.url
         result.final_url = final_url
 
-        # URL heuristic.
-        redirected = any(m in final_url for m in profile.signed_out_url_markers)
-
-        # DOM heuristic (more robust than URL alone).
-        logged_in_dom = None
+        # DOM heuristic (only trusted when a selector is configured and found).
+        logged_in_dom: bool | None = None
         if profile.logged_in_selector:
             try:
-                logged_in_dom = page.query_selector(profile.logged_in_selector) is not None
+                logged_in_dom = (
+                    page.query_selector(profile.logged_in_selector) is not None
+                )
             except Exception:
                 logged_in_dom = None
 
-        if logged_in_dom is True:
-            result.logged_in = True
-            result.status = SessionStatus.FUNCTIONAL
-        elif redirected:
-            result.logged_in = False
-            result.status = SessionStatus.INVALID
-            result.notes.append(f"Redirected to a sign-in page: {final_url}")
-        elif logged_in_dom is False:
-            result.logged_in = False
-            result.status = SessionStatus.INVALID
-            result.notes.append("Logged-in indicator not found in the page.")
-        else:
-            # No redirect and we couldn't read the DOM marker -> optimistic.
-            result.logged_in = True
-            result.status = SessionStatus.FUNCTIONAL
-            result.notes.append("No sign-in redirect detected.")
-
+        status, logged_in, note = evaluate_login(final_url, profile, logged_in_dom)
+        result.status = status
+        result.logged_in = logged_in
+        result.notes.append(note)
         return result
     except BrowserUnavailable:
         raise

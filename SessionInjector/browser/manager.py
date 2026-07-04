@@ -8,6 +8,7 @@ require it.
 from __future__ import annotations
 
 from contextlib import contextmanager
+from pathlib import Path
 from typing import Iterator, Optional
 
 
@@ -105,33 +106,126 @@ class BrowserManager:
         self.stop()
 
 
-def open_session(cookies: list, url: str, logger=None) -> None:
+PROFILES_DIR = Path(__file__).resolve().parent.parent / "profiles"
+
+
+def open_session(
+    cookies: list,
+    url: str,
+    logger=None,
+    profile=None,
+    persistent: bool = True,
+    profile_name: str = "default",
+) -> None:
     """Open a **visible** browser, inject cookies, navigate, and hold it open.
 
-    Blocks until the user closes the browser window, so this must be run on its
-    own thread (Playwright's sync API is single-threaded). Raises
-    :class:`BrowserUnavailable` if Chromium can't start.
+    ``persistent=True`` (default) launches with a real on-disk browser profile
+    under ``profiles/<profile_name>`` — its own user-data-dir, storage and
+    stable identity. This behaves far more like a genuine browser than a fresh
+    throwaway context, which materially improves the odds that a strict service
+    (Google, etc.) accepts the restored session. The profile persists between
+    runs, so cookies the service refreshes are kept.
+
+    When a ``profile`` (ServiceProfile) is given, the real login state is checked
+    after the page settles and reported honestly (✓ logado / ✗ deslogado).
+
+    Blocks until the user closes the browser, so run it on its own thread
+    (Playwright's sync API is single-threaded). Raises :class:`BrowserUnavailable`
+    if Chromium can't start.
     """
     import time
 
-    mgr = BrowserManager(headless=False).start()
     try:
-        context = mgr.new_context(cookies)
-        page = context.new_page()
+        from playwright.sync_api import sync_playwright
+    except ImportError as exc:  # pragma: no cover - env dependent
+        raise BrowserUnavailable(
+            "Playwright não instalado. Rode: pip install playwright "
+            "e depois playwright install chromium"
+        ) from exc
+
+    pw = sync_playwright().start()
+    context = None
+    try:
+        if persistent:
+            user_data_dir = PROFILES_DIR / profile_name
+            user_data_dir.mkdir(parents=True, exist_ok=True)
+            context = pw.chromium.launch_persistent_context(
+                str(user_data_dir), headless=False
+            )
+            if logger:
+                logger.info("Perfil persistente: %s", user_data_dir)
+        else:
+            browser = pw.chromium.launch(headless=False)
+            context = browser.new_context()
+
+        from .injector import inject_cookies
+        inject_cookies(context, cookies, logger=logger)
+
+        page = context.pages[0] if context.pages else context.new_page()
         try:
             page.goto(url, wait_until="domcontentloaded", timeout=30_000)
+            try:
+                page.wait_for_load_state("networkidle", timeout=6_000)
+            except Exception:
+                pass
+            final_url = page.url
             if logger:
-                logger.info("Aberto %s (URL final: %s)", url, page.url)
+                logger.info("Aberto %s (URL final: %s)", url, final_url)
+            _report_login(page, final_url, profile, logger)
         except Exception as exc:  # navigation hiccups shouldn't kill the window
             if logger:
                 logger.warning("Falha ao navegar para %s: %s", url, exc)
+
         # Hold the thread until the user closes the browser.
-        while mgr.is_connected():
+        closed = {"v": False}
+        try:
+            context.on("close", lambda: closed.__setitem__("v", True))
+        except Exception:
+            pass
+        while not closed["v"]:
             time.sleep(0.5)
+            try:
+                _ = context.pages  # raises once the context is gone
+            except Exception:
+                break
     finally:
-        mgr.stop()
+        try:
+            if context is not None:
+                context.close()
+        except Exception:
+            pass
+        try:
+            pw.stop()
+        except Exception:
+            pass
         if logger:
             logger.info("Navegador fechado (%s).", url)
+
+
+def _report_login(page, final_url: str, profile, logger) -> None:
+    """Log an honest verdict about whether the session actually restored."""
+    if logger is None or profile is None:
+        return
+    # Imported here to avoid a circular import at module load.
+    from .validator import evaluate_login
+    from ..cookies.models import SessionStatus
+
+    dom = None
+    if profile.logged_in_selector:
+        try:
+            dom = page.query_selector(profile.logged_in_selector) is not None
+        except Exception:
+            dom = None
+
+    status, _logged_in, note = evaluate_login(final_url, profile, dom)
+    if status is SessionStatus.FUNCTIONAL:
+        logger.info("✅ %s: sessão restaurada — VOCÊ ESTÁ LOGADO.", profile.label)
+    elif status is SessionStatus.INVALID:
+        logger.warning("❌ %s: sessão NÃO restaurada — pedindo login. %s",
+                       profile.label, note)
+    else:
+        logger.warning("⚠️ %s: não deu para confirmar o login. %s",
+                       profile.label, note)
 
 
 @contextmanager
