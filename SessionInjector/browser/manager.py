@@ -90,11 +90,48 @@ class BrowserManager:
         return context
 
     # ------------------------------------------------------------------ #
+    def is_connected(self) -> bool:
+        """True while the Chromium process is alive (windows still open)."""
+        try:
+            return self._browser is not None and self._browser.is_connected()
+        except Exception:  # pragma: no cover
+            return False
+
+    # ------------------------------------------------------------------ #
     def __enter__(self) -> "BrowserManager":
         return self.start()
 
     def __exit__(self, *exc) -> None:
         self.stop()
+
+
+def open_session(cookies: list, url: str, logger=None) -> None:
+    """Open a **visible** browser, inject cookies, navigate, and hold it open.
+
+    Blocks until the user closes the browser window, so this must be run on its
+    own thread (Playwright's sync API is single-threaded). Raises
+    :class:`BrowserUnavailable` if Chromium can't start.
+    """
+    import time
+
+    mgr = BrowserManager(headless=False).start()
+    try:
+        context = mgr.new_context(cookies)
+        page = context.new_page()
+        try:
+            page.goto(url, wait_until="domcontentloaded", timeout=30_000)
+            if logger:
+                logger.info("Aberto %s (URL final: %s)", url, page.url)
+        except Exception as exc:  # navigation hiccups shouldn't kill the window
+            if logger:
+                logger.warning("Falha ao navegar para %s: %s", url, exc)
+        # Hold the thread until the user closes the browser.
+        while mgr.is_connected():
+            time.sleep(0.5)
+    finally:
+        mgr.stop()
+        if logger:
+            logger.info("Navegador fechado (%s).", url)
 
 
 @contextmanager

@@ -100,12 +100,24 @@ an absolute import, so no "run as module" setup is required). Then:
 
 1. Click **📂 Importar cookies…** and pick a `cookies.txt` / `.json` export.
 2. The analysis cards (total / valid / expired / …) fill in instantly.
-3. Each recognised service shows a **Health Score** bar and status.
-4. Tick **Testar no navegador** to run the real Chromium round-trip
-   (requires `playwright install chromium`).
+3. **Sessões** tab — each recognised service shows a **Health Score** bar and a
+   **🌐 Abrir logado** button that opens a real Chromium window with the cookies
+   injected (e.g. Google opens already signed in to your account).
+4. **Domínios** tab — every site found in your cookies, searchable, each with a
+   **🌐 Abrir** button that opens that site logged in.
+5. Tick **Testar no navegador ao importar** to also run the automated headless
+   round-trip during import.
 
-Tkinter ships with the standard Python installer, so the GUI needs no extra
-dependency for the local (no-browser) checks.
+The **Abrir** buttons open a visible browser and keep it open until you close
+it — so this needs Chromium installed:
+
+```bash
+pip install playwright
+playwright install chromium
+```
+
+Tkinter ships with the standard Python installer, so the GUI itself and all the
+local (no-browser) checks need no extra dependency.
 
 ### Command line
 
