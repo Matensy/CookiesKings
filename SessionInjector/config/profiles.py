@@ -51,6 +51,7 @@ GOOGLE = ServiceProfile(
     test_url="https://myaccount.google.com/",
     signed_out_url_markers=(
         "signin", "ServiceLogin", "/v3/signin", "accounts.google.com/Login",
+        "/account/about", "google.com/account/about",
     ),
     logged_in_hosts=("myaccount.google.com",),
     logged_in_selector="",
